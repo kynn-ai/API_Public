@@ -1,6 +1,7 @@
-from xml import dom
-import numpy  as np
-import pandas as pd
+import numpy    as np
+import pandas   as pd
+import datetime as dt
+
 
 import time
 import hashlib
@@ -89,14 +90,16 @@ def GetChannelsData(oClient, bHashChannels, HashString, pChannelsFile):
 #%%
 #############################################################################################
 #############################################################################################
-def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolder, bInclude_text):
+def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolder, bInclude_text, MAX_TIME=float('inf')):
     nChannels    = dChannels.shape[0]
     lMessageKeys = ['type', 'subtype', 'ts', 'user', 'text']
 
     print('This might take a while...')
     #-- for each channel:
+    startTime = time.time()
     for ii, dChannel in dChannels.iterrows():
-
+        if time.time() - startTime > MAX_TIME:
+            break
         id           = dChannel['id']
         if bHash_channels == True:
             name = dChannel['ChannelHashID']
@@ -113,8 +116,8 @@ def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolde
             try:
                 oHistory  = oClient.conversations_history(channel=id, limit=100, cursor=sNextPage) #-- get response
             except SlackApiError as oError:
-                #-- Rate error --> wait for 10 seconds and continue
-                time.sleep(10)
+                #-- Rate error --> wait for 5 seconds and continue
+                time.sleep(5)
                 continue
 
             lMessages = oHistory.data['messages']                                                  #-- get messages
@@ -128,6 +131,10 @@ def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolde
                 sNextPage = oHistory.data['response_metadata']['next_cursor']
             else:
                 bIsDone = True
+
+            #-- Break on date:
+            if dt.datetime.fromtimestamp(float(dMessage['ts'])).date() > dt.date(2019, 1, 1):
+                break
 
         dChannelHistory = pd.DataFrame(lChannelHistory, columns=lMessageKeys)
         if bInclude_text == False:
@@ -147,7 +154,8 @@ def GetSlackData(
     hash_unique_str,
     bInclude_text,
     bHash_channels,
-    bHash_users
+    bHash_users,
+    MAX_TIME=float('inf'),
 ):
     #-- Hash function:
     def HashString(string):
@@ -173,7 +181,7 @@ def GetSlackData(
     dChannels = GetChannelsData(oClient, bHash_channels, HashString, pChannelsFile) #-- get channel list
 
     #-- Save channels history:
-    SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolder, bInclude_text)
+    SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolder, bInclude_text, MAX_TIME)
 
     #-- Zip the output folder:
     shutil.make_archive(f'{pFolder}', 'zip', pFolder)
