@@ -133,7 +133,7 @@ def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolde
                 bIsDone = True
 
             #-- Break on date:
-            if dt.datetime.fromtimestamp(float(dMessage['ts'])).date() > dt.date(2019, 1, 1):
+            if dt.datetime.fromtimestamp(float(dMessage['ts'])).date() < dt.date(2019, 1, 1):
                 break
 
         dChannelHistory = pd.DataFrame(lChannelHistory, columns=lMessageKeys)
