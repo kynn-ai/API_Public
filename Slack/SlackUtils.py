@@ -129,12 +129,14 @@ def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bHash_channel
     begin_date    = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
     begin_date_ts = dt.datetime.timestamp(dt.datetime.combine(begin_date, dt.time()))
     startTime     = time.time()
+    bJob_done     = True
 
     print('This might take a while...')
     #-- for each channel:
     for ii, dChannel in dChannels.iterrows():
         #-- Break on time:
         if time.time() - startTime > runtimeLimit:
+            bJob_done = False
             break
         print(f'\r{ii+1} / {nChannels} channels ', end='')
 
@@ -145,7 +147,6 @@ def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bHash_channel
 
     print('Done!')
 
-    bJob_done = True if (ii + 1) == nChannels else False
     return bJob_done
 #############################################################################################
 #############################################################################################
