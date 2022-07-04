@@ -59,8 +59,7 @@ def GetChannelsInfo(oClient, bHashChannels, HashString, pChannelsFile):
     bIsDone   = False
     sNextPage = ''
     while bIsDone == False:
-        #-- TODO: set limit between 200-1,000! (and compare runtime)
-        oPublicChannels = oClient.conversations_list(limit=500, cursor=sNextPage) #-- get response
+        oPublicChannels = oClient.conversations_list(limit=100, cursor=sNextPage) #-- get response
         lPublicChannels = oPublicChannels.data['channels']                        #-- get channels
 
         #-- Extract keys:
@@ -85,7 +84,7 @@ def GetChannelsInfo(oClient, bHashChannels, HashString, pChannelsFile):
     return dChannels
 #############################################################################################
 #############################################################################################
-def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, bInclude_text, begin_date):
+def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, bInclude_text, begin_date_ts):
     lMessageKeys = ['type', 'subtype', 'ts', 'user', 'text']
 
     id           = dChannel['id']
@@ -97,10 +96,11 @@ def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, 
     #-- Get history:
     while bIsDone == False:
         try:
-            oHistory  = oClient.conversations_history(channel=id, limit=100, cursor=sNextPage) #-- get response
+            oHistory  = oClient.conversations_history(channel=id, limit=1000, cursor=sNextPage, oldest=begin_date_ts) #-- get response
         except SlackApiError as oError:
             #-- Rate error --> wait for 3 seconds and continue
-            time.sleep(3)
+            print('SLEEP!', end='')
+            time.sleep(1)
             continue
 
         lMessages = oHistory.data['messages']                                                  #-- get messages
@@ -115,10 +115,6 @@ def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, 
         else:
             bIsDone = True
 
-        #-- Break on date:
-        if dt.datetime.fromtimestamp(float(dMessage['ts'])).date() < begin_date:
-            break
-
     dChannelHistory = pd.DataFrame(lChannelHistory, columns=lMessageKeys)
     if bInclude_text == False:
         dChannelHistory.drop(columns=['text'], inplace=True)
@@ -128,11 +124,11 @@ def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, 
 
 #############################################################################################
 #############################################################################################
-def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolder, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
-    nChannels    = dChannels.shape[0]
-    lMessageKeys = ['type', 'subtype', 'ts', 'user', 'text']
-    begin_date   = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
-    startTime    = time.time()
+def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bHash_channels, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
+    nChannels     = dChannels.shape[0]
+    begin_date    = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
+    begin_date_ts = dt.datetime.timestamp(dt.datetime.combine(begin_date, dt.time()))
+    startTime     = time.time()
 
     print('This might take a while...')
     #-- for each channel:
@@ -142,13 +138,15 @@ def SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolde
             break
         print(f'\r{ii+1} / {nChannels} channels ', end='')
 
-        id           = dChannel['id']
         pChannelFile = pPublicChannelsFolder / dChannel['FileName']
         if pChannelFile.exists() == True and bOverride == False:
             continue
-        dChannelHistory  = GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, bInclude_text, begin_date)
+        GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, bInclude_text, begin_date_ts)
 
     print('Done!')
+
+    bJob_done = True if (ii + 1) == nChannels else False
+    return bJob_done
 #############################################################################################
 #############################################################################################
 def GetSlackData(dConfig):
@@ -197,7 +195,16 @@ def GetSlackData(dConfig):
     dChannels = GetChannelsInfo(oClient, bHash_channels, HashString, pChannelsFile) #-- get channel list
 
     #-- Save channels history:
-    SaveChannelsHistory(oClient, dChannels, bHash_channels, pPublicChannelsFolder, bInclude_text, runtime_limit, sBegin_date, bOverride)
+    bJob_done = SaveChannelsHistory(
+        oClient,
+        dChannels,
+        pPublicChannelsFolder,
+        bHash_channels,
+        bInclude_text,
+        runtime_limit,
+        sBegin_date,
+        bOverride
+    )
 
     #-- Zip the output folder:
     if bZip == True:
@@ -208,15 +215,15 @@ def GetSlackData(dConfig):
         from google.colab import files
         files.download(f'{pFolder}.zip')
         
-    #-- TODO: Print this only when all channels have been downloaded...
-    print(f'''\n\n
-        =================================================================================
-        =================================================================================
-        Job complete - well done!
-        Please send the {pFolder}.zip file to get.report@kynn.ai and results will follow
-        =================================================================================
-        =================================================================================
-    \n\n''')
+    if bJob_done == True:
+        print(f'''\n\n
+            =================================================================================
+            =================================================================================
+            Job complete - well done!
+            Please send the {pFolder}.zip file to get.report@kynn.ai and results will follow
+            =================================================================================
+            =================================================================================
+        \n\n''')
 
     return dUsers, dChannels
 #############################################################################################
