@@ -59,8 +59,9 @@ def GetChannelsInfo(oClient, bHashChannels, HashString, pChannelsFile):
     bIsDone   = False
     sNextPage = ''
     while bIsDone == False:
-        oPublicChannels = oClient.conversations_list(limit=100, cursor=sNextPage) #-- get response
-        lPublicChannels = oPublicChannels.data['channels']                       #-- get channels
+        #-- TODO: set limit between 200-1,000! (and compare runtime)
+        oPublicChannels = oClient.conversations_list(limit=500, cursor=sNextPage) #-- get response
+        lPublicChannels = oPublicChannels.data['channels']                        #-- get channels
 
         #-- Extract keys:
         for dChannel in lPublicChannels:
@@ -207,6 +208,7 @@ def GetSlackData(dConfig):
         from google.colab import files
         files.download(f'{pFolder}.zip')
         
+    #-- TODO: Print this only when all channels have been downloaded...
     print(f'''\n\n
         =================================================================================
         =================================================================================
