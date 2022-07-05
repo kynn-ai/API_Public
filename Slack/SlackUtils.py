@@ -84,7 +84,7 @@ def GetChannelsInfo(oClient, bHashChannels, HashString, pChannelsFile):
     return dChannels
 #############################################################################################
 #############################################################################################
-def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, bInclude_text, begin_date_ts):
+def GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, begin_date_ts):
     lMessageKeys = ['type', 'subtype', 'ts', 'user', 'text']
 
     id           = dChannel['id']
@@ -124,7 +124,7 @@ def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, 
 
 #############################################################################################
 #############################################################################################
-def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bHash_channels, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
+def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
     nChannels     = dChannels.shape[0]
     begin_date    = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
     begin_date_ts = dt.datetime.timestamp(dt.datetime.combine(begin_date, dt.time()))
@@ -143,7 +143,7 @@ def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bHash_channel
         pChannelFile = pPublicChannelsFolder / dChannel['FileName']
         if pChannelFile.exists() == True and bOverride == False:
             continue
-        GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, bInclude_text, begin_date_ts)
+        GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, begin_date_ts)
 
     print('Done!')
 
@@ -187,7 +187,8 @@ def GetSlackData(dConfig):
         if pd.isna(string) == True:
             return np.nan
         else:
-            return hashlib.sha256((string + hash_unique_str).encode()).hexdigest()
+            # return hashlib.sha256((string + hash_unique_str).encode()).hexdigest()
+            return hashlib.sha256((string).encode()).hexdigest()
 
     #-- Get API client:
     oClient   = slack_sdk.WebClient(token=slack_clinet_token)
@@ -200,7 +201,6 @@ def GetSlackData(dConfig):
         oClient,
         dChannels,
         pPublicChannelsFolder,
-        bHash_channels,
         bInclude_text,
         runtime_limit,
         sBegin_date,
