@@ -1,0 +1,2 @@
+pandas
+slack_sdk

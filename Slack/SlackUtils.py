@@ -212,9 +212,13 @@ def GetSlackData(dConfig):
         shutil.make_archive(f'{pFolder}', 'zip', pFolder)
     
     #-- Download from Colab:
-    if bDownload == True and 'google.colab' in str(get_ipython()):
-        from google.colab import files
-        files.download(f'{pFolder}.zip')
+    try:
+        if bDownload == True and 'google.colab' in str(get_ipython()):
+            from google.colab import files
+            files.download(f'{pFolder}.zip')
+    except:
+        print('Warning: Cannot download the zip file!')
+        pass
         
     if bJob_done == True:
         print(f'''\n\n
