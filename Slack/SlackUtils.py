@@ -47,7 +47,7 @@ def GetUsersInfo(oClient, bHash_users, HashString, pUsersFile):
     if bHash_users == True:
         dUsers.drop(columns=['first_name', 'last_name', 'real_name', 'email'], inplace=True)
 
-    dUsers.to_csv(pUsersFile)
+    dUsers.to_csv(pUsersFile, index=False)
     
     return dUsers    
 #############################################################################################
@@ -79,7 +79,7 @@ def GetChannelsInfo(oClient, bHashChannels, HashString, pChannelsFile):
     else:
         dChannels['FileName'] = dChannels.apply(lambda x: f"{x['id']}_{x['name']}.csv",          axis=1)
 
-    dChannels.to_csv(pChannelsFile)
+    dChannels.to_csv(pChannelsFile, index=False)
     
     return dChannels
 #############################################################################################
@@ -118,7 +118,7 @@ def GetChannelHistory(oClient, dChannel, bHash_channels, pPublicChannelsFolder, 
     dChannelHistory = pd.DataFrame(lChannelHistory, columns=lMessageKeys)
     if bInclude_text == False:
         dChannelHistory.drop(columns=['text'], inplace=True)
-    dChannelHistory.to_csv(pChannelFile)
+    dChannelHistory.to_csv(pChannelFile, index=False)
 
     return dChannelHistory
 
