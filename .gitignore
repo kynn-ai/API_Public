@@ -1,6 +1,8 @@
 *.ipynb_checkpoints
 *.mov
 
+__pycache__/
+
 #-- kynn:
 */Ignore/*
 kynn_private_json.json

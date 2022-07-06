@@ -7,8 +7,10 @@ import hashlib
 import slack_sdk
 import shutil
 import json
+import concurrent.futures
 
 from pathlib          import Path
+from tqdm             import tqdm
 from slack_sdk.errors import SlackApiError
 
 #############################################################################################
@@ -124,6 +126,32 @@ def GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, b
 
 #############################################################################################
 #############################################################################################
+# def SaveChannelsHistoryDeprecated(oClient, dChannels, pPublicChannelsFolder, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
+#     nChannels     = dChannels.shape[0]
+#     begin_date    = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
+#     begin_date_ts = dt.datetime.timestamp(dt.datetime.combine(begin_date, dt.time()))
+#     startTime     = time.time()
+#     bJob_done     = True
+
+#     print('This might take a while...')
+#     #-- for each channel:
+#     for ii, dChannel in dChannels.iterrows():
+#         #-- Break on time:
+#         if time.time() - startTime > runtimeLimit:
+#             bJob_done = False
+#             break
+#         print(f'\r{ii+1} / {nChannels} channels ', end='')
+
+#         pChannelFile = pPublicChannelsFolder / dChannel['FileName']
+#         if pChannelFile.exists() == True and bOverride == False:
+#             continue
+#         GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, begin_date_ts)
+
+#     print('Done!')
+
+#     return bJob_done
+#############################################################################################
+#############################################################################################
 def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
     nChannels     = dChannels.shape[0]
     begin_date    = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
@@ -131,19 +159,25 @@ def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bInclude_text
     startTime     = time.time()
     bJob_done     = True
 
+    def GetChannelHistoryThread(args):
+        _, dChannel = args
+        pChannelFile = pPublicChannelsFolder / dChannel['FileName']
+        if pChannelFile.exists() == False or bOverride == True:
+            GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, begin_date_ts)
+
     print('This might take a while...')
     #-- for each channel:
-    for ii, dChannel in dChannels.iterrows():
-        #-- Break on time:
-        if time.time() - startTime > runtimeLimit:
-            bJob_done = False
-            break
-        print(f'\r{ii+1} / {nChannels} channels ', end='')
-
-        pChannelFile = pPublicChannelsFolder / dChannel['FileName']
-        if pChannelFile.exists() == True and bOverride == False:
-            continue
-        GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, begin_date_ts)
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            list(tqdm(executor.map(
+                GetChannelHistoryThread,
+                dChannels.iterrows(),
+                timeout = runtimeLimit),
+                total   = dChannels.shape[0]
+            ))
+    except TimeoutError:
+        print('Timeout Error!')
+        bJob_done = False
 
     print('Done!')
 
