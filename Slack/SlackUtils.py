@@ -31,7 +31,7 @@ def GetUsersInfo(oClient, bHash_users, HashString, pUsersFile):
             for key in lUserKeys:
                 if   key in dUser:            lUser += [dUser[key]]
                 elif key in dUser['profile']: lUser += [dUser['profile'][key]]
-                else:                         lUser += [np.nan]
+                else:                         lUser += [None]
 
     #         #-- Skip bots:
     #         if lUser[0] == 'USLACKBOT' or lUser[-1] == True:
@@ -44,8 +44,14 @@ def GetUsersInfo(oClient, bHash_users, HashString, pUsersFile):
         if sNextPage == '':
             bIsDone = True
 
+    def GetDomain(s):
+        if s is None:
+            return None
+        return s.split('@')[1]
+
     dUsers               = pd.DataFrame(lUsers, columns=lUserKeys)
     dUsers['UserHashID'] = dUsers['email'].apply(HashString)
+    dUsers['Domain'    ] = dUsers['email'].apply(GetDomain)
     if bHash_users == True:
         dUsers.drop(columns=['first_name', 'last_name', 'real_name', 'email'], inplace=True)
 
@@ -109,7 +115,7 @@ def GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, b
 
         #-- Extract keys:
         for dMessage in lMessages:
-            lChannelHistory += [[dMessage.get(key, np.nan) for key in lMessageKeys]]
+            lChannelHistory += [[dMessage.get(key, None) for key in lMessageKeys]]
 
         #-- Get next page:
         if oHistory.data['has_more'] == True:
@@ -152,7 +158,7 @@ def GetChannelHistory(oClient, dChannel, pPublicChannelsFolder, bInclude_text, b
 #     return bJob_done
 #############################################################################################
 #############################################################################################
-def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bInclude_text, runtimeLimit=float('inf'), sBeginDate='01-01-2019', bOverride=False):
+def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bInclude_text, runtimeLimit=60*60*24, sBeginDate='01-01-2019', bOverride=False):
     nChannels     = dChannels.shape[0]
     begin_date    = dt.datetime.strptime(sBeginDate, "%m-%d-%Y").date()
     begin_date_ts = dt.datetime.timestamp(dt.datetime.combine(begin_date, dt.time()))
@@ -168,18 +174,21 @@ def SaveChannelsHistory(oClient, dChannels, pPublicChannelsFolder, bInclude_text
     print('This might take a while...')
     #-- for each channel:
     try:
+        #-- TODO max_workers=CONFIG.MAX_WORKERS
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            list(tqdm(executor.map(
-                GetChannelHistoryThread,
-                dChannels.iterrows(),
-                timeout = runtimeLimit),
-                total   = dChannels.shape[0]
+            list(tqdm(
+                executor.map(
+                    GetChannelHistoryThread,
+                    dChannels.iterrows(),
+                    timeout = runtimeLimit
+                ),
+                total = dChannels.shape[0]
             ))
     except TimeoutError:
         print('Timeout Error!')
         bJob_done = False
 
-    print('Done!')
+    print('\nDone!')
 
     return bJob_done
 #############################################################################################
@@ -193,7 +202,7 @@ def GetSlackData(dConfig):
     bInclude_text      = dConfig.get('INCLUDE_TEXT',    False)
     bHash_channels     = dConfig.get('HASH_CHANNELS',   False)
     bHash_users        = dConfig.get('HASH_USERS',      True)
-    runtime_limit      = dConfig.get('RUNTIME_LIMIT',   float('inf'))
+    runtime_limit      = dConfig.get('RUNTIME_LIMIT',   60*60*24)
     sBegin_date        = dConfig.get('BEGIN_DATE',      '01-01-2019')
     bOverride          = dConfig.get('OVERRIDE',        False)
     bZip               = dConfig.get('ZIP',             True)
@@ -219,7 +228,7 @@ def GetSlackData(dConfig):
     #-- Hash function:
     def HashString(string):
         if pd.isna(string) == True:
-            return np.nan
+            return None
         else:
             # return hashlib.sha256((string + hash_unique_str).encode()).hexdigest()
             return hashlib.sha256((string).encode()).hexdigest()
